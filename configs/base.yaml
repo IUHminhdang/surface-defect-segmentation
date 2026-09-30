@@ -1,0 +1,58 @@
+project:
+  name: surface-defect-segmentation
+  seed: 42
+  dataset: KolektorSDD2
+
+paths:
+  data_root: data/raw
+  processed_root: data/processed
+  splits_root: data/splits
+  experiments_root: experiments
+  results_root: results
+
+data:
+  image_size: 256
+  num_workers: 2
+  batch_size: 8
+  expected_images: 3335
+  expected_defective_images: 356
+  expected_normal_images: 2979
+  official_train_size: 2331
+  official_test_size: 1004
+  image_dir_name: images
+  mask_dir_name: ground_truth
+
+training:
+  epochs: 50
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  device: auto
+
+loss:
+  boundary_weight: 0.1
+
+evaluation:
+  image_defect_threshold: 0.0
+  boundary_tolerance: 2
+
+experiments:
+  E0_baseline:
+    multi_scale: false
+    attention: false
+    boundary_loss: false
+  E1_multiscale:
+    multi_scale: true
+    attention: false
+    boundary_loss: false
+  E2_attention:
+    multi_scale: false
+    attention: true
+    boundary_loss: false
+  E3_boundary:
+    multi_scale: false
+    attention: false
+    boundary_loss: true
+  E4_full:
+    multi_scale: true
+    attention: true
+    boundary_loss: true

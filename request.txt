@@ -1,0 +1,1029 @@
+# 1. Tên đề tài
+
+### English
+
+> **Use Multi-Scale Features, Attention Gates, and Boundary-Aware Loss for Small Surface Defect Segmentation on KolektorSDD2**
+> 
+
+### Tiếng Việt
+
+> **Nghiên cứu về Multi-Scale Features, Attention Gates và Boundary-Aware Loss cho bài toán phân vùng khuyết tật bề mặt nhỏ trên KolektorSDD2**
+> 
+
+---
+
+# 2. Giới thiệu đề tài
+
+## 2.1. Bài toán
+
+Trong kiểm tra chất lượng sản phẩm công nghiệp, các khuyết tật trên bề mặt thường có kích thước rất nhỏ, độ tương phản thấp và có thể gần giống với texture bình thường của bề mặt.
+
+Nhóm sử dụng **KolektorSDD2**, một dataset cho industrial surface-defect segmentation. Dataset có **3,335 ảnh**, gồm **356 ảnh defective và 2,979 ảnh normal**, với pixel-level annotations; official split gồm 2,331 ảnh train và 1,004 ảnh test.
+
+Bài toán của nhóm:
+
+```
+Input image
+     ↓
+Segmentation model
+     ↓
+Pixel-level defect mask
+```
+
+Ví dụ:
+
+```
+             Input
+       ┌───────────────┐
+       │               │
+       │       ───     │
+       │      defect   │
+       │               │
+       └───────────────┘
+               ↓
+              Model
+               ↓
+             Mask
+       ┌───────────────┐
+       │               │
+       │       ███     │
+       │      █████    │
+       │               │
+       └───────────────┘
+```
+
+---
+
+# 3. Vấn đề nghiên cứu
+
+Nhóm tập trung vào 3 vấn đề:
+
+### Problem 1 — Tiny defect
+
+Khi encoder liên tục downsample:
+
+```
+Image
+ ↓
+1/2
+ ↓
+1/4
+ ↓
+1/8
+ ↓
+1/16
+ ↓
+1/32
+```
+
+defect quá nhỏ có thể mất thông tin.
+
+→ **Multi-Scale Feature Fusion**
+
+---
+
+### Problem 2 — Irrelevant features
+
+Skip connection truyền rất nhiều thông tin từ encoder sang decoder, trong đó có cả background/texture không liên quan.
+
+→ **Attention Gate**
+
+```
+Encoder feature
+      ↓
+Attention Gate
+      ↓
+Filtered feature
+      ↓
+Decoder
+```
+
+---
+
+### Problem 3 — Boundary
+
+Defect có thể rất nhỏ và boundary khó xác định.
+
+→ **Boundary-Aware Loss**
+
+$L=L_{BCE}+L_{Dice}+\lambda L_{Boundary}$
+
+---
+
+---
+
+# 4. Research Questions
+
+## RQ1
+
+> **Multi-Scale Feature Fusion có cải thiện segmentation của defect nhỏ không?**
+> 
+
+## RQ2
+
+> **Attention Gate có cải thiện khả năng lọc feature và giảm false positive không?**
+> 
+
+## RQ3
+
+> **Boundary-Aware Loss có cải thiện chất lượng boundary không?**
+> 
+
+## RQ4
+
+> **Khi kết hợp ba thành phần, chúng có bổ trợ nhau hay chỉ làm tăng computational cost?**
+> 
+
+---
+
+# 5. Architecture cuối cùng
+
+## Baseline — E0
+
+```
+             ResNet34
+                ↓
+          Encoder features
+                ↓
+          U-Net Decoder
+                ↓
+           Defect Mask
+```
+
+Loss:
+
+$L_{base}=L_{BCE}+L_{Dice}$
+
+---
+
+## E1 — Multi-Scale
+
+```
+             ResNet34
+                ↓
+      Multi-Scale Feature Fusion
+                ↓
+          U-Net Decoder
+                ↓
+           Defect Mask
+```
+
+---
+
+## E2 — Attention
+
+```
+             ResNet34
+                ↓
+          Attention Gates
+                ↓
+          U-Net Decoder
+                ↓
+           Defect Mask
+```
+
+Attention nằm trên skip connections.
+
+---
+
+## E3 — Boundary
+
+Architecture giống E0 nhưng loss:
+
+$L=L_{BCE}+L_{Dice}+\lambda L_{Boundary}$
+
+---
+
+## E4 — Full
+
+```
+                 ResNet34
+                    ↓
+          Multi-Scale Fusion
+                    ↓
+             Attention Gates
+                    ↓
+              U-Net Decoder
+                    ↓
+               Defect Mask
+```
+
+Loss:
+
+$L=L_{BCE}+L_{Dice}+\lambda L_{Boundary}$ 
+
+Đây là **model cuối** của nhóm.
+
+---
+
+# 6. Experiment plan
+
+## Core experiments — bắt buộc
+
+| Experiment | Multi-Scale | Attention | Boundary Loss | Mục đích |
+| --- | --- | --- | --- | --- |
+| **E0** | ❌ | ❌ | ❌ | Baseline |
+| **E1** | ✅ | ❌ | ❌ | Đánh giá Multi-scale |
+| **E2** | ❌ | ✅ | ❌ | Đánh giá Attention |
+| **E3** | ❌ | ❌ | ✅ | Đánh giá Boundary |
+| **E4** | ✅ | ✅ | ✅ | Full model |
+
+Đây là **5 experiment chính**.
+
+---
+
+## Extended ablation — nếu còn thời gian
+
+| Experiment | MS | AG | BL |
+| --- | --- | --- | --- |
+| E5 | ✅ | ✅ | ❌ |
+| E6 | ✅ | ❌ | ✅ |
+| E7 | ❌ | ✅ | ✅ |
+
+Mục đích:
+
+> kiểm tra interaction giữa các component.
+> 
+
+Không cần E5–E7 nếu thời gian quá ngắn.
+
+---
+
+# 8. Baseline ngoài (nếu còn thời gian)
+
+Để project giống một benchmark thực sự chứ không chỉ tự so với chính mình, nếu đủ thời gian chạy thêm:
+
+```
+U-Net
+Attention U-Net
+ResNet34-UNet
+Ours / E4
+```
+
+Bảng:
+
+| Method | Dice | IoU | Precision | Recall | Boundary F1 |
+| --- | --- | --- | --- | --- | --- |
+| U-Net |  |  |  |  |  |
+| Attention U-Net |  |  |  |  |  |
+| ResNet34-UNet |  |  |  |  |  |
+| **Ours** |  |  |  |  |  |
+
+---
+
+# 9. Evaluation — bản cuối
+
+Đây là phần đã sửa lại hoàn chỉnh.
+
+## 9.1 Pixel-level
+
+### Dice
+
+### IoU
+
+### Precision
+
+### Recall
+
+**Đây là main metrics.**
+
+---
+
+# 10. Boundary-level
+
+Vì nhóm có Boundary Loss nên phải đo boundary.
+
+### Boundary Precision
+
+### Boundary Recall
+
+### Boundary F1
+
+$F1_B= \frac{2P_B R_B}{P_B+R_B}$
+
+Dùng để kiểm tra:
+
+> Boundary Loss có thật sự cải thiện boundary không?
+> 
+
+---
+
+# 11. Defect-size analysis
+
+Chia defect thành:
+
+```
+Small
+Medium
+Large
+```
+
+**Ngưỡng được xác định sau EDA**, không tự chọn tùy ý.
+
+Bảng:
+
+| Model | Overall Dice | Small Dice | Medium Dice | Large Dice |
+| --- | --- | --- | --- | --- |
+| E0 |  |  |  |  |
+| E1 |  |  |  |  |
+| E2 |  |  |  |  |
+| E3 |  |  |  |  |
+| E4 |  |  |  |  |
+
+Thêm:
+
+| Model | Small Recall |
+| --- | --- |
+| E0 |  |
+| E1 |  |
+| E2 |  |
+| E3 |  |
+| E4 |  |
+
+Đây là cách kiểm tra trực tiếp:
+
+> **Multi-scale có giúp small defect hay không?**
+> 
+
+---
+
+# 12. Image-level evaluation
+
+Từ segmentation mask:
+
+```
+Predicted defect pixels
+          ↓
+    area > threshold?
+       ↙       ↘
+     Yes        No
+      ↓          ↓
+   Defect      Normal
+```
+
+Tính:
+
+- Image Precision
+- Image Recall
+- Image F1
+- Normal-image False Positive Rate
+
+Đặc biệt:
+
+FPRnormal=#normal images predicted as defective#normal imagesFPR_{normal} = \frac{\#normal\ images\ predicted\ as\ defective} {\#normal\ images}
+
+Điều này rất phù hợp với industrial inspection.
+
+---
+
+# 13. Qualitative evaluation
+
+Phải có figure:
+
+```
+Input | Ground Truth | E0 | E1 | E2 | E3 | E4
+```
+
+Chọn:
+
+### Case 1
+
+Easy defect.
+
+### Case 2
+
+Tiny defect.
+
+### Case 3
+
+Low-contrast defect.
+
+### Case 4
+
+Boundary khó.
+
+### Case 5
+
+False positive trên normal image.
+
+---
+
+# 14. Failure analysis
+
+Tạo bảng:
+
+| Failure Type | Count | Percentage |
+| --- | --- | --- |
+| Missed tiny defect |  |  |
+| Missed low-contrast defect |  |  |
+| Boundary leakage |  |  |
+| False positive |  |  |
+| Defect merging |  |  |
+
+Sau đó lấy representative examples.
+
+---
+
+# 15. Training evaluation
+
+**Có, phải có graph.**
+
+Mỗi experiment lưu:
+
+### Graph 1
+
+**Train Loss vs Validation Loss**
+
+```
+Loss
+ ↑
+ │\
+ │ \
+ │  \________
+ │       \___
+ └──────────────→ Epoch
+```
+
+### Graph 2
+
+**Train Dice vs Validation Dice**
+
+### Graph 3
+
+**Train IoU vs Validation IoU**
+
+### Graph 4 — Full model
+
+Nếu có thể tách:
+
+```
+Total Loss
+BCE Loss
+Dice Loss
+Boundary Loss
+```
+
+Như vậy report có thể giải thích:
+
+- convergence;
+- overfitting;
+- best epoch;
+- training stability.
+
+---
+
+# 16. Statistical evaluation
+
+Nếu GPU/time cho phép:
+
+```
+Seed 42
+Seed 123
+Seed 2026
+```
+
+Mỗi model chạy 3 lần.
+
+Report:
+
+Mean±Std\boxed{Mean\pm Std}
+
+Ví dụ format:
+
+| Model | Dice |
+| --- | --- |
+| E0 | 0.xxx ± 0.xxx |
+| E1 | 0.xxx ± 0.xxx |
+| E2 | 0.xxx ± 0.xxx |
+| E3 | 0.xxx ± 0.xxx |
+| E4 | 0.xxx ± 0.xxx |
+
+**Các số này chỉ là format, không phải kết quả dự đoán.**
+
+---
+
+# 17. Computational evaluation
+
+| Model | Params (M) ↓ | FLOPs (G) ↓ | Latency (ms) ↓ | FPS ↑ | VRAM (GB) ↓ |
+| --- | --- | --- | --- | --- | --- |
+| E0 |  |  |  |  |  |
+| E1 |  |  |  |  |  |
+| E2 |  |  |  |  |  |
+| E3 |  |  |  |  |  |
+| E4 |  |  |  |  |  |
+
+Đặc biệt xem:
+
+> Accuracy improvement ↔ computational cost.
+> 
+
+---
+
+# 18. Bộ bảng kết quả cuối cùng
+
+Report cuối có khoảng **5 bảng chính**.
+
+### Table 1 — Main segmentation
+
+| Model | Dice | IoU | Precision | Recall | Boundary F1 |
+| --- | --- | --- | --- | --- | --- |
+
+### Table 2 — Ablation
+
+| MS | AG | BL | Dice | IoU | Boundary F1 |
+| --- | --- | --- | --- | --- | --- |
+
+### Table 3 — Defect characteristics
+
+| Model | Small | Medium | Large | Low Contrast |
+| --- | --- | --- | --- | --- |
+
+### Table 4 — Image inspection
+
+| Model | Image F1 | Normal FP Rate |
+| --- | --- | --- |
+
+### Table 5 — Efficiency
+
+| Model | Params | FLOPs | Latency | FPS |
+| --- | --- | --- | --- | --- |
+
+---
+
+# 19. Chia công việc 4 người
+
+Đề xuất chia theo **module**, không chia mỗi người một model.
+
+---
+
+## 👤 Người 1 — Dataset & EDA
+
+### Phụ trách
+
+```
+Dataset
+├── Dataset organization
+├── Image-mask pairing
+├── Train/val/test split
+├── EDA
+├── Defect statistics
+├── Defect-size analysis
+└── Augmentation
+```
+
+### Deliverables
+
+```
+01_eda.ipynb
+dataset.py
+dataset_statistics.csv
+EDA figures
+```
+
+### Phải hoàn thành
+
+- dataset audit;
+- positive/negative distribution;
+- image size;
+- mask integrity;
+- defect area distribution;
+- small/medium/large definition;
+- visualization.
+
+---
+
+# 👤 Người 2 — Architecture
+
+### Phụ trách
+
+```
+models/
+├── ResNet34 Encoder
+├── U-Net Decoder
+├── MultiScale Fusion
+├── Attention Gate
+└── Full Model
+```
+
+### Deliverables
+
+```
+E0
+E1
+E2
+E4
+```
+
+và architecture diagram.
+
+---
+
+# 👤 Người 3 — Loss & Training
+
+### Phụ trách
+
+```
+losses/
+├── BCE
+├── Dice
+└── Boundary
+
+training/
+├── trainer.py
+├── train.py
+├── checkpoint.py
+└── config.py
+```
+
+### Deliverables
+
+- E0 training;
+- E1 training;
+- E2 training;
+- E3 training;
+- E4 training;
+- checkpoint;
+- logging;
+- training curves.
+
+Người 2 và 3 phải làm việc rất sát nhau.
+
+---
+
+# 👤 Người 4 — Evaluation & Research
+
+### Phụ trách
+
+```
+evaluation/
+├── Dice
+├── IoU
+├── Precision
+├── Recall
+├── Boundary F1
+├── Small-defect analysis
+├── Image-level metrics
+├── Normal FP
+└── Visualization
+```
+
+Đồng thời:
+
+- literature review;
+- related work;
+- experiment table;
+- figures;
+- failure analysis;
+- report;
+- PPT.
+
+---
+
+# 20. Thống nhất chung
+
+### Meeting 1 — Trước khi code
+
+Chốt:
+
+```
+Dataset split
+Resize
+Augmentation
+Loss
+Optimizer
+LR
+Batch size
+Epoch
+Seed
+Metric
+```
+
+---
+
+### Meeting 2 — Sau baseline
+
+Cùng xem:
+
+```
+E0
+↓
+Prediction
+↓
+Failure cases
+```
+
+Rồi mới quyết định có cần chỉnh preprocessing không.
+
+**Không được thấy baseline xấu rồi mỗi người tự đổi một thứ.**
+
+---
+
+### Meeting 3 — Trước final experiment
+
+Freeze:
+
+```
+Code
+Protocol
+Hyperparameters
+Evaluation
+```
+
+Sau đó chạy E0–E4 final.
+
+---
+
+# 21. Timeline 4 ngày
+
+## Ngày 1 — Dataset + Baseline
+
+```
+1
+Literature + Dataset
+
+2
+Dataset audit
+
+3
+EDA
+
+4
+Preprocessing
+
+5
+Augmentation
+
+6
+ResNet34-UNet
+
+7
+E0 training
+```
+
+### Cuối ngày 1:
+
+> **E0 phải chạy được.**
+> 
+
+---
+
+# Ngày 2 — Improvements
+
+```
+8–9
+Multi-scale
+
+10–11
+Attention Gate
+
+12
+Boundary Loss
+
+13
+Full model
+
+14
+Debug + sanity check
+```
+
+### Cuối ngày 2:
+
+> **E0–E4 đều chạy được.**
+> 
+
+---
+
+# Ngày 3 — Experiments
+
+Chạy:
+
+```
+E0
+E1
+E2
+E3
+E4
+```
+
+Nếu GPU đủ:
+
+```
+E5
+E6
+E7
+```
+
+Nếu có thời gian:
+
+```
+3 seeds
+```
+
+---
+
+# Ngày 4 — Evaluation + Report
+
+```
+Main metrics
+      ↓
+Small-defect
+      ↓
+Boundary
+      ↓
+Image-level
+      ↓
+Failure analysis
+      ↓
+Params/FLOPs/Latency
+      ↓
+Figures
+      ↓
+Report
+      ↓
+PPT
+```
+
+---
+
+# 22. Cấu trúc repo cuối
+
+```
+surface-defect-segmentation/
+│
+├── configs/
+│   ├── baseline.yaml
+│   ├── multiscale.yaml
+│   ├── attention.yaml
+│   ├── boundary.yaml
+│   └── full.yaml
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── splits/
+│
+├── src/
+│   ├── datasets/
+│   │   └── kolektor.py
+│   │
+│   ├── models/
+│   │   ├── resnet_encoder.py
+│   │   ├── decoder.py
+│   │   ├── attention_gate.py
+│   │   ├── multiscale.py
+│   │   └── resnet34_unet.py
+│   │
+│   ├── losses/
+│   │   ├── dice.py
+│   │   ├── boundary.py
+│   │   └── combined.py
+│   │
+│   ├── training/
+│   │   ├── trainer.py
+│   │   └── train.py
+│   │
+│   └── evaluation/
+│       ├── metrics.py
+│       ├── boundary_metrics.py
+│       └── visualization.py
+│
+├── experiments/
+│   ├── E0_baseline/
+│   ├── E1_multiscale/
+│   ├── E2_attention/
+│   ├── E3_boundary/
+│   └── E4_full/
+│
+├── notebooks/
+│   ├── 01_eda.ipynb
+│   ├── 02_visualization.ipynb
+│   └── 03_analysis.ipynb
+│
+├── results/
+│   ├── metrics.csv
+│   ├── figures/
+│   └── predictions/
+│
+├── README.md
+└── requirements.txt
+```
+
+---
+
+# 23. Checklist "Done" của project
+
+### Dataset
+
+- [ ]  Dataset audit
+- [ ]  EDA
+- [ ]  Image-mask verification
+- [ ]  Defect-size distribution
+- [ ]  Visualization
+- [ ]  Split
+
+### Model
+
+- [ ]  E0 ResNet34-UNet
+- [ ]  E1 + Multi-scale
+- [ ]  E2 + Attention
+- [ ]  E3 + Boundary
+- [ ]  E4 Full
+
+### Training
+
+- [ ]  BCE
+- [ ]  Dice
+- [ ]  Boundary Loss
+- [ ]  Checkpoint
+- [ ]  Training curves
+- [ ]  Validation curves
+- [ ]  Fixed protocol
+
+### Evaluation
+
+- [ ]  Dice
+- [ ]  IoU
+- [ ]  Precision
+- [ ]  Recall
+- [ ]  Boundary F1
+- [ ]  Small/Medium/Large
+- [ ]  Image-level F1
+- [ ]  Normal FP
+- [ ]  Failure analysis
+- [ ]  Params
+- [ ]  FLOPs
+- [ ]  Latency
+- [ ]  FPS
+
+### Research
+
+- [ ]  8–12 papers
+- [ ]  Related-work table
+- [ ]  Closest-paper comparison
+- [ ]  Ablation table
+- [ ]  3 seeds nếu đủ thời gian
+
+### Presentation
+
+- [ ]  Problem
+- [ ]  Dataset
+- [ ]  Baseline
+- [ ]  Proposed modifications
+- [ ]  Experiment design
+- [ ]  Results
+- [ ]  Ablation
+- [ ]  Failure cases
+- [ ]  Efficiency
+- [ ]  Conclusion
+
+---
+
+# 24. Một slide duy nhất để giới thiệu toàn bộ project
+
+```
+             KOLEKTORSDD2
+                  │
+                  ▼
+       SMALL SURFACE DEFECT
+          SEGMENTATION
+                  │
+       ┌──────────┼──────────┐
+       ▼          ▼          ▼
+   Tiny defect  Irrelevant  Boundary
+   information   features    errors
+       │          │          │
+       ▼          ▼          ▼
+ Multi-Scale   Attention   Boundary
+   Fusion        Gates        Loss
+       │          │          │
+       └──────────┼──────────┘
+                  ▼
+            RESNET34-UNET
+                  │
+                  ▼
+             DEFECT MASK
+                  │
+       ┌──────────┼───────────┐
+       ▼          ▼           ▼
+    Dice/IoU   Small Defect  Boundary
+    P/R        Analysis      F1
+       │          │           │
+       └──────────┼───────────┘
+                  ▼
+       Image-level + Failure
+       + Efficiency Analysis
+```
+
+**Core experiment:**
+
+$\boxed{ E0\rightarrow E1/E2/E3\rightarrow E4 }$
+
+**Core metrics:**
+
+$\boxed{ Dice,\ IoU,\ Precision,\ Recall,\ Boundary\ F1 }$
+
+**Core analysis:**
+
+$\boxed{ Small\ Defect + Boundary + False\ Positive + Efficiency }$
+
+---
