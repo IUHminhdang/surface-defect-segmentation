@@ -8,10 +8,12 @@ __pycache__/
 .venv/
 venv/
 env/
+# Dataset
+data/*.tar
+data/*.zip
 
 # Jupyter
 .ipynb_checkpoints/
-
 # Dataset
 data/raw/*
 data/processed/*
