@@ -148,7 +148,13 @@ Nếu máy tính cá nhân không có GPU hoặc dung lượng VRAM dưới 6GB,
    Chỉ định cờ `--data-root` trỏ tới đường dẫn dataset trong Kaggle Input (ví dụ: `/kaggle/input/kolektorsdd2-datasetninja`):
    ```bash
    python -m src.training.train --experiment E0_baseline --data-root /kaggle/input/kolektorsdd2-datasetninja --epochs 50
+   
    ```
+Lưu ý đổi đường dẫn sao cho phù hợp với đường dẫn thật.
+
+
+
+
 6. **Lưu trữ kết quả**:
    Tải thư mục `experiments/` về máy sau khi phiên chạy trên Kaggle kết thúc.
 
@@ -173,60 +179,6 @@ Nếu máy tính cá nhân không có GPU hoặc dung lượng VRAM dưới 6GB,
 * **Cách khắc phục**: Mở `configs/base.yaml`, chỉnh tạm thời `num_workers: 0` (chạy trên tiến trình chính) để kiểm tra.
 Mình sẽ kiểm tra đúng ba điểm: Dice loss/metric hiện tại có đang tính cả ảnh normal không, Trainer có scheduler/early stopping chưa, và checkpoint có đủ optimizer/scheduler state chưa. Sau đó mình sẽ sửa một lát cắt nhỏ, chạy lại smoke test, rồi hướng dẫn quy trình Kaggle 50–100 epochs theo cấu hình đã cố định.
 
-Read 
-
-Read 
-
-Read 
-
-Read 
-
-Read 
-
-Đúng lưu ý của bạn: hiện tại `dice_loss` đang tính Dice trên cả ảnh normal, nên ảnh có `target=0` làm Dice gần 1 và kéo loss/metric cao giả. Mình sửa trước phần cốt lõi: Dice loss chỉ lấy các sample có defect; metric sẽ ghi `defect_count` để Trainer tính `val_dice` trên defect images בלבד, còn Precision/Recall vẫn giữ pixel-level toàn batch để phản ánh false positive.
-
-Generating patch (41 lines) in , 
-
-
-```
-
-```
-
-```
-
-```
-Patch đã áp dụng nhưng phần metric có nguy cơ thiếu phép tính `dice/iou` sau khi tách positive samples; mình kiểm tra ngay vùng vừa sửa trước khi chạy validation, rồi sửa đúng trong cùng lát cắt nếu cần.
-
-Read , lines 15 to 75
-
-Generating patch (15 lines) in 
-
-
-```
-
-```
-Dice-only logic đã được hoàn thiện. Mình chạy kiểm tra phân biệt rõ hai trường hợp: batch chỉ có ảnh normal phải cho Dice loss bằng 0 gradient, còn batch defect + normal phải tính Dice trên defect sample và vẫn tính Precision/Recall toàn batch.
-
-Execution complete: Validate defect-only Dice logic
-
-Execution subagent không khả dụng do lỗi model backend, nên mình dùng chính terminal lệnh `python` mà bạn vừa chạy E1–E4 để validation cục bộ, không thay đổi file.
-
-Ran terminal command: import torch; from src.losses.dice import dice_loss; from src.evaluation.metrics import segmentation_metrics; logits=torch.tensor([[[[0.0,0.0],[0.0,0.0]]],[[[8.0,-8.0],[-8.0,-8.0]]]); targets=torch.tensor([[[[0.0,0.0],[0.0,0.0]]],[[[1.0,0.0],[0.0,0.0]]]]); normal_loss=dice_loss(logits[:1],targets[:1]); mixed_loss=dice_loss(logits,targets); metrics=segmentation_metrics(logits,targets); assert abs(normal_loss.item()) < 1e-8; assert torch.isfinite(mixed_loss); assert metrics['defect_count'] == 1.0; print('DEFECT-ONLY DICE OK', round(mixed_loss.item(),4), metrics)
-
-Lần validation bị lỗi do PowerShell/Python một dòng làm mất dấu ngoặc ở tensor literal, không phải lỗi code. Mình chạy lại bằng đoạn `exec` nhiều dòng để kiểm tra chính xác cùng một trường hợp.
-
-Ran terminal command: code='''import torch
-from src.losses.dice import dice_loss
-from src.evaluation.metrics import segmentation_metrics
-logits = torch.tensor([[[[0.0, 0.0], [0.0, 0.0]]], [[[8.0, -8.0], [-8.0, -8.0]]]])
-targets = torch.tensor([[[[0.0, 0.0], [0.0, 0.0]]], [[[1.0, 0.0], [0.0, 0.0]]]])
-normal_loss = dice_loss(logits[:1], targets[:1])
-mixed_loss = dice_loss(logits, targets)
-metrics = segmentation_metrics(logits, targets)
-assert abs(normal_loss.item()) < 1e-8
-assert torch.isfinite(mixed_loss)
-assert metrics['defect_count'] == 1.0
-print('DEFECT-ONLY DICE OK', round(mixed_loss.item(), 4), metrics)'''; exec(code)
 
 
 ## Việc cần làm trước khi lên Kaggle
