@@ -27,6 +27,10 @@ training:
   learning_rate: 0.0001
   weight_decay: 0.00001
   device: auto
+  scheduler: cosine_annealing
+  min_lr: 0.000001
+  early_stopping_patience: 10
+  min_delta: 0.0001
 
 loss:
   boundary_weight: 0.1

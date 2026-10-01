@@ -23,15 +23,27 @@ def segmentation_metrics(
 	epsilon: float = 1e-7,
 ) -> Mapping[str, float]:
 	predictions, expected = _binary_masks(logits, targets, threshold)
-	true_positive = np.logical_and(predictions, expected).sum()
-	false_positive = np.logical_and(predictions, ~expected).sum()
-	false_negative = np.logical_and(~predictions, expected).sum()
+	positive_samples = expected.reshape(expected.shape[0], -1).sum(axis=1) > 0
+	defect_count = int(positive_samples.sum())
+	metric_predictions = predictions[positive_samples] if defect_count else predictions
+	metric_expected = expected[positive_samples] if defect_count else expected
+	true_positive = np.logical_and(metric_predictions, metric_expected).sum()
+	false_positive = np.logical_and(metric_predictions, ~metric_expected).sum()
+	false_negative = np.logical_and(~metric_predictions, metric_expected).sum()
 	dice = (2 * true_positive + epsilon) / (2 * true_positive + false_positive + false_negative + epsilon)
 	iou = (true_positive + epsilon) / (true_positive + false_positive + false_negative + epsilon)
-	precision = (true_positive + epsilon) / (true_positive + false_positive + epsilon)
-	recall = (true_positive + epsilon) / (true_positive + false_negative + epsilon)
-	return {"dice": float(dice), "iou": float(iou), "precision": float(precision), "recall": float(recall)}
-
+	all_true_positive = np.logical_and(predictions, expected).sum()
+	all_false_positive = np.logical_and(predictions, ~expected).sum()
+	all_false_negative = np.logical_and(~predictions, expected).sum()
+	precision = (all_true_positive + epsilon) / (all_true_positive + all_false_positive + epsilon)
+	recall = (all_true_positive + epsilon) / (all_true_positive + all_false_negative + epsilon)
+	return {
+		"dice": float(dice) if defect_count else 0.0,
+		"iou": float(iou) if defect_count else 0.0,
+		"precision": float(precision),
+		"recall": float(recall),
+		"defect_count": float(defect_count),
+	}
 
 def image_level_metrics(
 	logits: Tensor,

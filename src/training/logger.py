@@ -18,6 +18,8 @@ def save_training_artifacts(
 	history: list[dict[str, float]],
 	output_dir: Path,
 	config: dict[str, Any],
+	scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
+	best_state: dict[str, object] | None = None,
 ) -> None:
 	output_dir.mkdir(parents=True, exist_ok=True)
 	(output_dir / "history.json").write_text(json.dumps(history, indent=2))
@@ -29,13 +31,17 @@ def save_training_artifacts(
 		writer.writerows(history)
 
 	best = max(history, key=lambda row: row["val_dice"]) if history else None
+	state = best_state or {
+		"model_state_dict": model.state_dict(),
+		"optimizer_state_dict": optimizer.state_dict(),
+		"scheduler_state_dict": scheduler.state_dict() if scheduler else None,
+		"best_epoch": best["epoch"] if best else None,
+	}
 	torch.save(
 		{
-			"model_state_dict": model.state_dict(),
-			"optimizer_state_dict": optimizer.state_dict(),
+			**state,
 			"history": history,
 			"config": config,
-			"best_epoch": best["epoch"] if best else None,
 		},
 		output_dir / "best.pt",
 	)

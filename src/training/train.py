@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--experiment", default="E0_baseline")
 	parser.add_argument("--epochs", type=int, default=None)
 	parser.add_argument("--output-dir", type=Path, default=None)
+	parser.add_argument("--resume", type=Path, default=None)
 	return parser.parse_args()
 
 
@@ -89,20 +90,43 @@ def main() -> int:
 		lr=config["training"]["learning_rate"],
 		weight_decay=config["training"]["weight_decay"],
 	)
+	epochs = args.epochs or config["training"]["epochs"]
+	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+		optimizer,
+		T_max=epochs,
+		eta_min=config["training"]["min_lr"],
+	)
+	start_epoch = 0
+	initial_history = None
+	resume_checkpoint = None
+	if args.resume:
+		resume_checkpoint = torch.load(args.resume, map_location=device)
+		model.load_state_dict(resume_checkpoint["model_state_dict"])
+		optimizer.load_state_dict(resume_checkpoint["optimizer_state_dict"])
+		if resume_checkpoint.get("scheduler_state_dict"):
+			scheduler.load_state_dict(resume_checkpoint["scheduler_state_dict"])
+		initial_history = resume_checkpoint.get("history", [])
+		start_epoch = len(initial_history)
 	trainer = Trainer(
 		model,
 		optimizer,
 		device,
 		use_boundary=experiment["boundary_loss"],
 		boundary_weight=config["loss"]["boundary_weight"],
+		scheduler=scheduler,
+		early_stopping_patience=config["training"]["early_stopping_patience"],
+		min_delta=config["training"]["min_delta"],
 	)
+	if resume_checkpoint:
+		trainer.best_state = resume_checkpoint
 	history = trainer.fit(
 		train_loader,
 		validation_loader,
-		epochs=args.epochs or config["training"]["epochs"],
+		epochs=epochs,
+		initial_history=initial_history,
 	)
 	output_dir = args.output_dir or Path(config["paths"]["experiments_root"]) / args.experiment
-	save_training_artifacts(model, optimizer, history, output_dir, config)
+	save_training_artifacts(model, optimizer, history, output_dir, config, scheduler, trainer.best_state)
 	print(f"TRAINING COMPLETE: {args.experiment}, epochs={len(history)}, device={device}")
 	print(f"ARTIFACTS SAVED: {output_dir}")
 	return 0

@@ -9,6 +9,11 @@ from torch.nn import functional as F
 def dice_loss(logits: Tensor, targets: Tensor, smooth: float = 1.0) -> Tensor:
 	probabilities = logits.sigmoid().flatten(1)
 	targets = targets.float().flatten(1)
+	positive_samples = targets.sum(dim=1) > 0
+	if not positive_samples.any():
+		return logits.sum() * 0.0
+	probabilities = probabilities[positive_samples]
+	targets = targets[positive_samples]
 	intersection = (probabilities * targets).sum(dim=1)
 	denominator = probabilities.sum(dim=1) + targets.sum(dim=1)
 	dice = (2.0 * intersection + smooth) / (denominator + smooth)
