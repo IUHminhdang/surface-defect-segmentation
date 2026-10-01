@@ -15,6 +15,7 @@ env/
 # Dataset
 data/raw/*
 data/processed/*
+data/kolektorsdd2-DatasetNinja/
 
 # Model checkpoints
 *.pth

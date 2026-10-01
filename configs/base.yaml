@@ -4,7 +4,7 @@ project:
   dataset: KolektorSDD2
 
 paths:
-  data_root: data/raw
+  data_root: data/kolektorsdd2-DatasetNinja
   processed_root: data/processed
   splits_root: data/splits
   experiments_root: experiments

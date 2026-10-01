@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Subset, random_split
 from ..datasets.kolektor import KolektorSDD2
 from ..datasets.transforms import Compose, RandomHorizontalFlip, Resize
 from ..models.resnet34_unet import ResNet34UNet
+from .logger import save_training_artifacts
 from .trainer import Trainer
 
 
@@ -29,6 +30,7 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--data-root", type=Path, default=None)
 	parser.add_argument("--experiment", default="E0_baseline")
 	parser.add_argument("--epochs", type=int, default=None)
+	parser.add_argument("--output-dir", type=Path, default=None)
 	return parser.parse_args()
 
 
@@ -99,7 +101,10 @@ def main() -> int:
 		validation_loader,
 		epochs=args.epochs or config["training"]["epochs"],
 	)
+	output_dir = args.output_dir or Path(config["paths"]["experiments_root"]) / args.experiment
+	save_training_artifacts(model, optimizer, history, output_dir, config)
 	print(f"TRAINING COMPLETE: {args.experiment}, epochs={len(history)}, device={device}")
+	print(f"ARTIFACTS SAVED: {output_dir}")
 	return 0
 
 
